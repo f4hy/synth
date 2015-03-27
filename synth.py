@@ -189,6 +189,9 @@ def synth(options):
     fundamental = fft(signal, fft_axe)
     play(signal)
 
+    if(options.output_stub):
+        logging.warn("Saving audio file not supported YET!")
+
     if plot:
         signal_plot(full_signal_axe, partial_signal_axe, signal, fundamental)
         if(options.output_stub):
