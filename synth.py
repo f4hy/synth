@@ -47,15 +47,16 @@ def custom(frequency=440.0, norm=True):
     amp = 1.0
     signal = sine_wave(frequency=frequency, amplitude=amp)
 
-    # took this from a "piano" profile doesn't look like it at all
+    # took this from a "piano" profile
     ff = {1: 0.8, 2: 0.05, 3: 0.05, 4: 0.05, 5: 0.1, 6: 0.2, 7: 0.1, 8: 0.01, 9: 0.02, 12: 0.02}
 
     nth_frequncy = frequency
     for harmonic, amp in ff.items():
         nth_frequncy = frequency+harmonic*frequency
-        sine = (harmonic**(0.1))*sine_wave(frequency=nth_frequncy, amplitude=amp)
+        amp=1.0
+        sine = (harmonic**(1.0))*sine_wave(frequency=nth_frequncy, amplitude=amp)
         l = len(sine)
-        d = attenuate(l/2+l/(harmonic**(2)), range(l))
+        d = attenuate(l/(harmonic**(3)), range(l))
         signal = signal+d*sine
 
     if norm:
@@ -158,16 +159,17 @@ def synth(options):
 
     plot = not options.dont_plot
 
+
     if options.signal == "harmonics":
-        signal = harmonics(number=50, frequency=440.0)
+        signal = harmonics(number=50, frequency=options.frequency)
     if options.signal == "even-harmonics":
-        signal = even_harmonics(number=500, frequency=440.0)
+        signal = even_harmonics(number=500, frequency=options.frequency)
     if options.signal == "square":
-        signal = square_wave()
+        signal = square_wave(frequency=options.frequency)
     if options.signal == "sine":
-        signal = sine_wave()
+        signal = sine_wave(frequency=options.frequency)
     if options.signal == "custom":
-        signal = custom()
+        signal = custom(frequency=options.frequency)
 
     if options.guassian:
         signal = envelope(signal)
@@ -176,7 +178,7 @@ def synth(options):
         fig, plots = plt.subplots(3)
         full_signal_axe, partial_signal_axe, fft_axe = plots
     else:
-        full_signal_axe, partial_signal_axe, fft_axe = None
+        full_signal_axe = partial_signal_axe = fft_axe = None
 
     fundamental = fft(signal, fft_axe)
     play(signal)
@@ -202,6 +204,8 @@ if __name__ == "__main__":
                         help="increase output verbosity")
     parser.add_argument("-s", "--signal", required=True, choices=signal_choices,
                         help="which signal to generate", default="harmonics")
+    parser.add_argument("-f", "--frequency", required=False, default=440.0, type=float,
+                        help="frequency to generate")
     parser.add_argument("-dp", "--dont_plot", action="store_true", required=False,
                         help="don't produce plots")
     parser.add_argument("-g", "--guassian", action="store_true", required=False,
