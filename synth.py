@@ -94,10 +94,7 @@ def synth(options):
 
     plot = not options.dont_plot
 
-    if options.signal == all_sequence:
-        signal = all_sequence(options.frequency)
-    else:
-        signal = gen_signal(options.signal, options.frequency, options)
+    signal = gen_signal(options.signal, options.frequency, options)
 
     if plot:
         fig, plots = plt.subplots(3)
