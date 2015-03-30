@@ -4,10 +4,13 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import pyaudio
+import inspect
+import sys
+import base_signals
+
 
 PI = np.pi
-
-SAMPLERATE = 44100
+SAMPLERATE = base_signals.SAMPLERATE
 
 
 def signal_plot(full_axe, partial_axe, signal, fundamental):
@@ -16,7 +19,7 @@ def signal_plot(full_axe, partial_axe, signal, fundamental):
     full_axe.set_ylim(-1.1, 1.1)
 
     partial_axe.set_title("Signal 2 cycles")
-    partial_axe.plot(signal[0:int(fundamental*2)])
+    partial_axe.plot(signal[0:int(fundamental)])
     partial_axe.set_ylim(-1.1, 1.1)
     plt.draw()
 
@@ -24,62 +27,6 @@ def signal_plot(full_axe, partial_axe, signal, fundamental):
 def normalize(signal):
     factor = max(signal)
     return signal / factor
-
-
-def harmonics(frequency=440.0, number=50, norm=True):
-    logging.info("Creating signal and the first {} harmonics of {}".format(number, frequency))
-    amp = 1.0
-    decay = 0.6
-    signal = sine_wave(frequency=frequency, amplitude=amp)
-    nth_frequncy = frequency
-    for n in range(1, number):
-        nth_amp = amp*np.exp(-1.0*decay*n)
-        nth_frequncy += frequency
-        signal = signal+sine_wave(frequency=nth_frequncy, amplitude=nth_amp)
-
-    if norm:
-        return normalize(signal)
-    else:
-        return signal
-
-
-def custom(frequency=440.0, norm=True):
-    amp = 1.0
-    signal = sine_wave(frequency=frequency, amplitude=amp)
-
-    # took this from a "piano" profile
-    ff = {1: 0.8, 2: 0.05, 3: 0.05, 4: 0.05, 5: 0.1, 6: 0.2, 7: 0.1, 8: 0.01, 9: 0.02, 12: 0.02}
-
-    nth_frequncy = frequency
-    for harmonic, amp in ff.items():
-        nth_frequncy = frequency+harmonic*frequency
-        amp=1.0
-        sine = (harmonic**(1.0))*sine_wave(frequency=nth_frequncy, amplitude=amp)
-        l = len(sine)
-        d = attenuate(l/(harmonic**(3)), range(l))
-        signal = signal+d*sine
-
-    if norm:
-        return normalize(signal)
-    else:
-        return signal
-
-
-def even_harmonics(frequency=440.0, number=50, norm=True):
-    logging.info("Creating signal and the first {} even harmonics of {}".format(number, frequency))
-    amp = 1.0
-    decay = 0.8
-    signal = sine_wave(frequency=frequency, amplitude=amp)
-    nth_frequncy = frequency
-    for n in range(1, number):
-        nth_amp = amp*np.exp(-1.0*decay*n)
-        nth_frequncy += 2*frequency
-        signal = signal+sine_wave(frequency=nth_frequncy, amplitude=nth_amp)
-
-    if norm:
-        return normalize(signal)
-    else:
-        return signal
 
 
 def gaussian(x, mu, sigma):
@@ -101,36 +48,15 @@ def envelope(signal):
     return (signal*y)
 
 
-def sine_wave(frequency=440.0, amplitude=0.5):
-    logging.info("Creating sine wave signal of {}".format(frequency))
-    t = np.arange(0, 2*PI, 2*PI/SAMPLERATE)
-    s = amplitude*np.sin(t*frequency)
-    return s
-
-
-def square_wave(frequency=440.0):
-    logging.info("Creating square wave signal of {}".format(frequency))
-    t = np.arange(0, 2*PI, 2*PI/SAMPLERATE)
-
-    def minus_or_one(x):
-        if x < 0:
-            return -1
-        else:
-            return 1
-    vfun = np.vectorize(minus_or_one)
-    s = vfun(np.sin(t*frequency))
-    return s
-
-
 def play(rawdata):
     data = rawdata.astype(np.float32).tostring()
 
     p = pyaudio.PyAudio()
 
     stream = p.open(format=pyaudio.paFloat32,
-                    channels = 1,
-                    rate = SAMPLERATE,
-                    output = True)
+                    channels=1,
+                    rate=SAMPLERATE,
+                    output=True)
     stream.write(data)
     stream.stop_stream()
     stream.close()
@@ -153,26 +79,25 @@ def fft(signal, axe=None):
     return fundamental
 
 
+def gen_signal(shape, freq, options):
+    signal = options.signalfunct(frequency=freq)
+
+    if options.guassian:
+        signal = envelope(signal)
+
+    return normalize(signal)
+
+
 def synth(options):
     """ Generate sound from sin waves """
     logging.debug("Called with {}".format(options))
 
     plot = not options.dont_plot
 
-
-    if options.signal == "harmonics":
-        signal = harmonics(number=50, frequency=options.frequency)
-    if options.signal == "even-harmonics":
-        signal = even_harmonics(number=500, frequency=options.frequency)
-    if options.signal == "square":
-        signal = square_wave(frequency=options.frequency)
-    if options.signal == "sine":
-        signal = sine_wave(frequency=options.frequency)
-    if options.signal == "custom":
-        signal = custom(frequency=options.frequency)
-
-    if options.guassian:
-        signal = envelope(signal)
+    if options.signal == all_sequence:
+        signal = all_sequence(options.frequency)
+    else:
+        signal = gen_signal(options.signal, options.frequency, options)
 
     if plot:
         fig, plots = plt.subplots(3)
@@ -198,11 +123,16 @@ def synth(options):
             plt.show()
 
 if __name__ == "__main__":
+
+    # This is a dirty hack to just read what functions are in
+    # "base_signals" and use those as options. so no changes need to
+    # be made here if more signals are added
+    function_list = inspect.getmembers(sys.modules["base_signals"], inspect.isfunction)
+
     parser = argparse.ArgumentParser(description="Generate sound from sin waves")
-    signal_choices = ["sine", "square", "harmonics", "even-harmonics", "custom"]
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="increase output verbosity")
-    parser.add_argument("-s", "--signal", required=True, choices=signal_choices,
+    parser.add_argument("-s", "--signal", required=True, choices=signal_choices.keys(),
                         help="which signal to generate", default="harmonics")
     parser.add_argument("-f", "--frequency", required=False, default=440.0, type=float,
                         help="frequency to generate")
@@ -213,6 +143,8 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output_stub", type=str, required=False,
                         help="stub of name to write output to")
     args = parser.parse_args()
+
+    args.signalfunct = signal_choices[args.signal]
 
     if args.verbose:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
