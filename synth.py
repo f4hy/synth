@@ -128,6 +128,7 @@ if __name__ == "__main__":
     # "base_signals" and use those as options. so no changes need to
     # be made here if more signals are added
     function_list = inspect.getmembers(sys.modules["base_signals"], inspect.isfunction)
+    signal_choices = {name: f for name, f in function_list}
 
     parser = argparse.ArgumentParser(description="Generate sound from sin waves")
     parser.add_argument("-v", "--verbose", action="store_true",
