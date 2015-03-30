@@ -122,26 +122,18 @@ def square_wave(frequency=440.0):
 
 
 def play(rawdata):
-    #print([int(rawdata[x]*127+128) for x in range(SAMPLERATE)])
-
-    # to play audio it takes values between 0 and 128, but streamed in
-    # as characters.
-    # so data that is [-1.0 -0.5 0.0 0.5 1.0] needs to
-    # be [0 32 64 96 128] streamed in as a string so the chr() for
-    # those values
-    data = ''.join([chr(int(rawdata[x]*127+128)) for x in range(SAMPLERATE)])
+    data = rawdata.astype(np.float32).tostring()
 
     p = pyaudio.PyAudio()
 
-    stream = p.open(format=p.get_format_from_width(1),
-                    channels=1,
-                    rate=SAMPLERATE,
-                    output=True)
+    stream = p.open(format=pyaudio.paFloat32,
+                    channels = 1,
+                    rate = SAMPLERATE,
+                    output = True)
     stream.write(data)
     stream.stop_stream()
     stream.close()
     p.terminate()
-
 
 def fft(signal, axe=None):
     sp = np.fft.rfft(signal)
