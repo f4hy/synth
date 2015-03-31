@@ -99,6 +99,9 @@ def scale(options):
         # This can be acomplished by removing steps from the chromatic
         indecies = (0, 2, 4, 5, 7, 9, 11, 12)
         factors = [factors[i] for i in indecies]
+    if options.minor:
+        indecies = (0, 2, 3, 5, 7, 8, 10, 12)
+        factors = [factors[i] for i in indecies]
 
     freqs = [options.frequency*f for f in factors]
     amps = [1 for f in factors]  # For Aweighting, need to figure this out better
@@ -110,7 +113,7 @@ def scale(options):
         signals = [a*normalize(s) for a, s in zip(amps, signals)]
 
     singal = np.concatenate(signals)
-    logging.info("Playing chromatic scale!")
+    logging.info("Playing scale!")
     return singal
 
 
@@ -126,7 +129,7 @@ def synth(options):
     else:
         full_signal_axe = partial_signal_axe = fft_axe = None
 
-    if options.major or options.chromatic:
+    if options.major or options.chromatic or options.minor:
         signal = scale(options)
         logging.info("Not plotting scale")
         plot = False
@@ -169,12 +172,17 @@ if __name__ == "__main__":
                         help="don't produce plots")
     parser.add_argument("-g", "--guassian", action="store_true", required=False,
                         help="put the signal in a gaussian")
-    parser.add_argument("-c", "--chromatic", action="store_true", required=False,
-                        help="play a chromatic scale")
-    parser.add_argument("-m", "--major", action="store_true", required=False,
-                        help="play a major scale")
     parser.add_argument("-o", "--output_stub", type=str, required=False,
                         help="stub of name to write output to")
+
+    scale_group = parser.add_mutually_exclusive_group()
+    scale_group.add_argument("-c", "--chromatic", action="store_true", required=False,
+                             help="play a chromatic scale")
+    scale_group.add_argument("-m", "--major", action="store_true", required=False,
+                             help="play a major scale")
+    scale_group.add_argument("-r", "--minor", action="store_true", required=False,
+                             help="play a minor scale")
+
     args = parser.parse_args()
 
     args.signalfunct = signal_choices[args.signal]
