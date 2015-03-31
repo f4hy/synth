@@ -63,19 +63,33 @@ def play(rawdata):
     p.terminate()
 
 def fft(signal, axe=None):
+    fft_axe, ceps_axe = axe
+
+    t = np.arange(0,1,1.0/len(signal))
     sp = np.fft.rfft(signal)
     freq = np.fft.rfftfreq(signal.shape[-1], d=1.0/SAMPLERATE)
     spectrum = np.abs(sp)
 
-    if axe:
-        axe.set_title("FFT")
-        axe.set_xlabel("Hz")
-        axe.plot(freq, spectrum)
+    if fft_axe:
+        fft_axe.set_title("FFT")
+        fft_axe.set_xlabel("Hz")
+        fft_axe.plot(freq, spectrum)
         plt.draw()
 
     peak = max(spectrum)
     fundamental = freq[list(spectrum).index(peak)]
     logging.info("Fundamental is {}".format(fundamental))
+
+    cepstrum = np.fft.irfft(np.log(abs(sp)))
+
+    print(cepstrum)
+    if ceps_axe:
+        ceps_axe.set_title("cepstrum")
+        ceps_axe.set_xlabel("t")
+        ceps_axe.plot(t, cepstrum)
+        ceps_axe.set_xlim(-0.1, 1.1)
+        plt.draw()
+
     return fundamental
 
 
@@ -124,10 +138,10 @@ def synth(options):
     plot = not options.dont_plot
 
     if plot:
-        fig, plots = plt.subplots(3)
-        full_signal_axe, partial_signal_axe, fft_axe = plots
+        fig, plots = plt.subplots(4)
+        full_signal_axe, partial_signal_axe, fft_axe, ceps_axe = plots
     else:
-        full_signal_axe = partial_signal_axe = fft_axe = None
+        full_signal_axe = partial_signal_axe = fft_axe = ceps_axe = None
 
     if options.major or options.chromatic or options.minor:
         signal = scale(options)
@@ -135,7 +149,7 @@ def synth(options):
         plot = False
     else:
         signal = gen_signal(options.signal, options.frequency, options)
-        fundamental = fft(signal, fft_axe)
+        fundamental = fft(signal, (fft_axe, ceps_axe))
 
     play(signal)
 
