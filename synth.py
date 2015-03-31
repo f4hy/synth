@@ -24,9 +24,9 @@ def signal_plot(full_axe, partial_axe, signal, fundamental):
     plt.draw()
 
 
-def normalize(signal):
+def normalize(signal, amp=1.0):
     factor = max(signal)
-    return signal / factor
+    return amp*signal / factor
 
 
 def gaussian(x, mu, sigma):
@@ -88,13 +88,29 @@ def gen_signal(shape, freq, options):
     return normalize(signal)
 
 
+def scale(options):
+    """Produce a PERFECT TEMPERMENT scale
+    divide the ocatve into equal parts, which is the 12th roots of 2
+    """
+
+    freqs = [options.frequency*2**(i/12.0) for i in range(13)]
+    amps = [1/2**(i/12.0) for i in range(13)]
+    signals = [options.signalfunct(frequency=f) for f in freqs]
+    if options.guassian:
+        signals = [a*normalize(envelope(s)) for a, s in zip(amps, signals)]
+    else:
+        signals = [a*normalize(s) for a, s in zip(amps, signals)]
+
+    singal = np.concatenate(signals)
+    logging.info("Playing chromatic scale!")
+    return singal
+
+
 def synth(options):
     """ Generate sound from sin waves """
     logging.debug("Called with {}".format(options))
 
     plot = not options.dont_plot
-
-    signal = gen_signal(options.signal, options.frequency, options)
 
     if plot:
         fig, plots = plt.subplots(3)
@@ -102,7 +118,14 @@ def synth(options):
     else:
         full_signal_axe = partial_signal_axe = fft_axe = None
 
-    fundamental = fft(signal, fft_axe)
+    if options.scale:
+        signal = scale(options)
+        logging.info("Not plotting scale")
+        plot = False
+    else:
+        signal = gen_signal(options.signal, options.frequency, options)
+        fundamental = fft(signal, fft_axe)
+
     play(signal)
 
     if(options.output_stub):
@@ -138,6 +161,8 @@ if __name__ == "__main__":
                         help="don't produce plots")
     parser.add_argument("-g", "--guassian", action="store_true", required=False,
                         help="put the signal in a gaussian")
+    parser.add_argument("-c", "--scale", action="store_true", required=False,
+                        help="play a scale")
     parser.add_argument("-o", "--output_stub", type=str, required=False,
                         help="stub of name to write output to")
     args = parser.parse_args()
