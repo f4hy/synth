@@ -93,8 +93,16 @@ def scale(options):
     divide the ocatve into equal parts, which is the 12th roots of 2
     """
 
-    freqs = [options.frequency*2**(i/12.0) for i in range(13)]
-    amps = [1/2**(i/12.0) for i in range(13)]
+    factors = [2**(i/12.0) for i in range(13)]
+    if options.major:
+        # Major scale is WWHWWWH where W=whole and H=half
+        # This can be acomplished by removing steps from the chromatic
+        indecies = (0, 2, 4, 5, 7, 9, 11, 12)
+        factors = [factors[i] for i in indecies]
+
+    freqs = [options.frequency*f for f in factors]
+    amps = [1 for f in factors]  # For Aweighting, need to figure this out better
+
     signals = [options.signalfunct(frequency=f) for f in freqs]
     if options.guassian:
         signals = [a*normalize(envelope(s)) for a, s in zip(amps, signals)]
@@ -118,7 +126,7 @@ def synth(options):
     else:
         full_signal_axe = partial_signal_axe = fft_axe = None
 
-    if options.scale:
+    if options.major or options.chromatic:
         signal = scale(options)
         logging.info("Not plotting scale")
         plot = False
@@ -161,8 +169,10 @@ if __name__ == "__main__":
                         help="don't produce plots")
     parser.add_argument("-g", "--guassian", action="store_true", required=False,
                         help="put the signal in a gaussian")
-    parser.add_argument("-c", "--scale", action="store_true", required=False,
-                        help="play a scale")
+    parser.add_argument("-c", "--chromatic", action="store_true", required=False,
+                        help="play a chromatic scale")
+    parser.add_argument("-m", "--major", action="store_true", required=False,
+                        help="play a major scale")
     parser.add_argument("-o", "--output_stub", type=str, required=False,
                         help="stub of name to write output to")
     args = parser.parse_args()
