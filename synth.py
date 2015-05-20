@@ -7,7 +7,8 @@ import pyaudio
 import inspect
 import sys
 import base_signals
-
+import wave
+from scipy.io import wavfile
 
 PI = np.pi
 SAMPLERATE = base_signals.SAMPLERATE
@@ -18,8 +19,11 @@ def signal_plot(full_axe, partial_axe, signal, fundamental):
     full_axe.plot(signal)
     full_axe.set_ylim(-1.1, 1.1)
 
-    partial_axe.set_title("Signal 2 cycles")
-    partial_axe.plot(signal[0:int(fundamental)])
+    partial_axe.set_title("Signal 4 cycles")
+    l = list(signal).index(max(signal))
+    partial_axe.plot(signal)
+
+    partial_axe.set_xlim(l, l+SAMPLERATE/fundamental*4)
     partial_axe.set_ylim(-1.1, 1.1)
     plt.draw()
 
@@ -48,6 +52,23 @@ def envelope(signal):
     return (signal*y)
 
 
+def read_file(filename):
+
+    try:
+        fs, data = wavfile.read(filename)
+    except Exception as e:
+        logging.error("Unable to read file {}.\nMay be a malformed wavefile?".format(filename))
+        logging.error("Wavfile.read returned: {}".format(e))
+        exit(-1)
+    if type(data[0]) == type(data):
+        logging.info("Found more than one channel, keeping only the first")
+        d = data.T[0]
+    else:
+        d = data
+    SAMPLERATE=fs
+    return normalize(d)
+
+
 def play(rawdata):
     data = rawdata.astype(np.float32).tostring()
 
@@ -70,19 +91,23 @@ def fft(signal, axe=None):
     freq = np.fft.rfftfreq(signal.shape[-1], d=1.0/SAMPLERATE)
     spectrum = np.abs(sp)
 
+    peak = max(spectrum)
+    fundamental = freq[list(spectrum).index(peak)]
+    logging.info("Fundamental is {}".format(fundamental))
+
+    spectrum = normalize(spectrum)
+
     if fft_axe:
         fft_axe.set_title("FFT")
         fft_axe.set_xlabel("Hz")
         fft_axe.plot(freq, spectrum)
         plt.draw()
 
-    peak = max(spectrum)
-    fundamental = freq[list(spectrum).index(peak)]
-    logging.info("Fundamental is {}".format(fundamental))
 
     cepstrum = np.fft.irfft(np.log(abs(sp)))
 
-    print(cepstrum)
+    t = np.arange(0,1,1.0/len(cepstrum))
+
     if ceps_axe:
         ceps_axe.set_title("cepstrum")
         ceps_axe.set_xlabel("t")
@@ -143,7 +168,10 @@ def synth(options):
     else:
         full_signal_axe = partial_signal_axe = fft_axe = ceps_axe = None
 
-    if options.major or options.chromatic or options.minor:
+    if options.input_file:
+        signal = read_file(options.input_file)
+        fundamental = fft(signal, (fft_axe, ceps_axe))
+    elif options.major or options.chromatic or options.minor:
         signal = scale(options)
         logging.info("Not plotting scale")
         plot = False
@@ -178,8 +206,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate sound from sin waves")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="increase output verbosity")
-    parser.add_argument("-s", "--signal", required=True, choices=signal_choices.keys(),
-                        help="which signal to generate", default="harmonics")
     parser.add_argument("-f", "--frequency", required=False, default=440.0, type=float,
                         help="frequency to generate")
     parser.add_argument("-dp", "--dont_plot", action="store_true", required=False,
@@ -188,6 +214,13 @@ if __name__ == "__main__":
                         help="put the signal in a gaussian")
     parser.add_argument("-o", "--output_stub", type=str, required=False,
                         help="stub of name to write output to")
+
+    signal_group = parser.add_mutually_exclusive_group()
+    signal_group.add_argument("-i", "--input_file", type=str, required=False,
+                        help="input file to anaylize")
+    signal_group.add_argument("-s", "--signal", required=False, choices=signal_choices.keys(),
+                        help="which signal to generate", default="harmonics")
+
 
     scale_group = parser.add_mutually_exclusive_group()
     scale_group.add_argument("-c", "--chromatic", action="store_true", required=False,
